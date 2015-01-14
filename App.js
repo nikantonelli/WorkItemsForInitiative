@@ -1,3 +1,59 @@
+Ext.define('Rally.app.WorkItemsForIntiative.BurnCalculator', {
+                extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
+                config: {
+                    completedScheduleStateNames: ['Accepted']
+                },
+            
+                constructor: function(config) {
+                    this.initConfig(config);
+                    this.callParent(arguments);
+                },
+            
+                getDerivedFieldsOnInput: function() {
+                    var completedScheduleStateNames = this.getCompletedScheduleStateNames();
+                    return [
+                        {
+                            "as": "Planned",
+                            "f": function(snapshot) {
+                                if (snapshot.PlanEstimate) {
+                                    return snapshot.PlanEstimate;
+                                }
+            
+                                return 0;
+                            }
+                        },
+                        {
+                            "as": "PlannedCompleted",
+                            "f": function(snapshot) {
+                                if (_.contains(completedScheduleStateNames, snapshot.ScheduleState) && snapshot.PlanEstimate) {
+                                    return snapshot.PlanEstimate;
+                                }
+            
+                                return 0;
+                            }
+                        }
+                    ];
+                },
+            
+                getMetrics: function() {
+                    return [
+                        {
+                            "field": "Planned",
+                            "as": "Planned",
+                            "display": "line",
+                            "f": "sum"
+                        },
+                        {
+                            "field": "PlannedCompleted",
+                            "as": "Completed",
+                            "f": "sum",
+                            "display": "column"
+                        }
+                    ];
+                }
+});
+
+
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -5,10 +61,17 @@ Ext.define('CustomApp', {
     items:[
         { xtype: 'container',
             id: 'headerBox',
-
-            margin: 10,
             layout: 'column',
             border: 5,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
+            id: 'piBurnupBox',
+            border: 1,
             style: {
                 borderColor: Rally.util.Colors.cyan,
                 borderStyle: 'solid'
@@ -22,6 +85,7 @@ Ext.define('CustomApp', {
     portfolioIds: null,
     workItems: [],
     chsrDlg: null,
+    lowestPiName: "",
 
     getSettingsFields: function() {
 
@@ -49,13 +113,13 @@ Ext.define('CustomApp', {
 
     _findAllLowestLevelPIs: function(app) {
 
-        var lowestPiName = "";
+
 
         //Find the lowest level PI type from the store
         if (app.typeStore){
             _.each(app.typeStore.data.items, function(item) {
                 if (item.get('Ordinal') === 0){
-                    lowestPiName = item.get('TypePath');
+                    app.lowestPiName = item.get('TypePath');
                 }
             });
         }
@@ -67,7 +131,9 @@ Ext.define('CustomApp', {
         //In the beginning, we have all the items in piStr of type Ext.getCmp('typeSelector').rawValue
         var objList = [];
 
-        _.each( app.objStr.split(" "), function(str) {
+        var objAr = app.objStr.split(" ");
+
+        _.each( objAr , function(str) {
         
             objList.push(Number(str));
         });
@@ -77,9 +143,9 @@ Ext.define('CustomApp', {
         //Use the lookback API as it allows us to use the '$in' operator and gets
         var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
             autoLoad: true,
-
-            fetch: ['FormattedID', 'Name', 'Children'],
-            hydrate: ['FormattedID'],
+            storeId: 'piStore',
+            fetch: ['FormattedID', 'Name', 'Children','ScheduleState', 'PlanEstimate'],
+            hydrate: ['FormattedID', 'Name', 'ScheduleState'],
             filters:  [ {
                             property: '_ItemHierarchy',
                             operator: '$in',
@@ -87,7 +153,7 @@ Ext.define('CustomApp', {
                         },
                         {
                             property: '_TypeHierarchy',
-                            value: lowestPiName
+                            value: app.lowestPiName
                         },
                         {
                             property: "__At",
@@ -164,7 +230,7 @@ Ext.define('CustomApp', {
                     selectedRecord.forEach( function(record) {
                         delim = (itmStr === "")?"":" ";
                         itmStr += delim + record.get('FormattedID'); //Add a space as delimiter
-                        objStr += delim + record.get('ObjectID'); //Add a space as delimiter
+                        objStr += delim + record.get('ObjectID').toString(); //Add a space as delimiter
                     });
 
                     //Save list in the settings field for next time
@@ -191,14 +257,128 @@ Ext.define('CustomApp', {
 
     _piBurnupChart: function(app) {
 
+        if ( Ext.getCmp('piBurnupChart')){
+            Ext.getCmp('piBurnupChart').destroy();
+        }
+
+        var rawChartData = [];
+
+        _.each(app.portfolioIds, function(item) {
+            rawChartData.push(item.raw);
+        });
+
+        var objList = [];
+
+        var objAr = app.objStr.split(" ");
+
+        _.each( objAr , function(str) {
+        
+            objList.push(Number(str));
+        });
+
+        Ext.getCmp('piBurnupBox').add({
+            xtype: 'rallychart',
+            id: 'piBurnupChart',
+            calculatorType: 'Rally.app.WorkItemsForIntiative.BurnCalculator',
+            calculatorConfig: {
+                completedScheduleStateNames: ['Accepted', 'Released']
+            },
+            storeConfig: {
+                find: {
+                    _TypeHierarchy: 'HierarchichalRequirement',
+                    _ItemHierarchy: {$in:objList},
+                    Children: null
+                },
+                fetch: ['ScheduleState', 'PlanEstimate'],
+                hydrate: ['ScheduleState']
+            },
+            chartConfig: {
+                        chart: {
+                            defaultSeriesType: 'area',
+                            zoomType: 'xy'
+                        },
+                        title: {
+                            text: 'PI Burnup'
+                        },
+                        xAxis: {
+                            categories: [],
+                            tickmarkPlacement: 'on',
+                            tickInterval: 5,
+                            title: {
+                                text: 'Date',
+                                margin: 10
+                            }
+                        },
+                        yAxis: [
+                            {
+                                title: {
+                                    text: 'Points'
+                                }
+                            }
+                        ],
+                        tooltip: {
+                            formatter: function() {
+                                return '' + this.x + '<br />' + this.series.name + ': ' + this.y;
+                            }
+                        },
+                        plotOptions: {
+                            series: {
+                                marker: {
+                                    enabled: false,
+                                    states: {
+                                        hover: {
+                                            enabled: true
+                                        }
+                                    }
+                                },
+                                groupPadding: 0.01
+                            },
+                            column: {
+                                stacking: null,
+                                shadow: false
+                            }
+                        }
+                    }
+        });
+
+    },
+
+    _piCustomGrid: function(app) {
+
+        if (Ext.getCmp('piGrid'))
+        {
+            Ext.getCmp('piGrid').destroy();
+        }
+
+        var piGrid = Ext.create('Rally.ui.grid.Grid', {
+            columnCfgs: [
+                'FormattedID',
+                'Name'
+            ],
+
+            store: Ext.create( 'Rally.data.wsapi.Store', {
+
+                model: app.lowestPiName,
+                filters: [
+                    function(item) { return false; }
+                ]
+            }),
+            id: 'piGrid'
+        });
+
+        Ext.getCmp('piGridBox').add(piGrid);
+
+    },
+
+    _itemInList: function(item) {
+        debugger;
     },
 
     _updateDetailsPanes: function(app){
 
-debugger;
-
         //Add the first chart after the header.
         app._piBurnupChart(app);
+//        app._piCustomGrid(app);
     },
 
     // The headerbox should contain a feedback textbox for the viewer to see - this may need to have more information!
