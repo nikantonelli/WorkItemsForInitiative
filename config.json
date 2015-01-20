@@ -1,10 +1,13 @@
 {
    "name": "WorkItemsForInitiative",
-   "className": "CustomApp",
+   "className": "Rally.app.WorkItemsForInitiative.app",
    "server": "https://rally1.rallydev.com",
    "sdk": "2.0rc3",
    "javascript": [
-      "App.js"
+      "App.js",
+      "DateMixin.js",
+      "BurnupCalculator.js",
+      "BurndownCalculator.js"
    ],
    "css": [
       "app.css"

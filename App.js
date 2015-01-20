@@ -1,6 +1,4 @@
-
-
-Ext.define('CustomApp', {
+Ext.define('Rally.app.WorkItemsForInitiative.app', {
     extend: 'Rally.app.App',
     componentCls: 'app',
 
@@ -16,8 +14,16 @@ Ext.define('CustomApp', {
         },
         {
             xtype: 'container',
-            layout: 'column',
             id: 'piBurnupBox',
+            border: 1,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
+            id: 'piBurndownBox',
             border: 1,
             style: {
                 borderColor: Rally.util.Colors.cyan,
@@ -91,8 +97,8 @@ Ext.define('CustomApp', {
         var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
             autoLoad: true,
             storeId: 'piStore',
-            fetch: ['FormattedID', 'Name', 'Children','ScheduleState', 'PlanEstimate'],
-            hydrate: ['FormattedID', 'Name', 'ScheduleState'],
+            fetch: ['FormattedID', 'Name', 'Children','ScheduleState', 'PlanEstimate', 'PlannedStartDate','PlannedEndDate'],
+            hydrate: ['FormattedID', 'Name', 'ScheduleState','PlannedStartDate','PlannedEndDate' ],
             filters:  [ {
                             property: '_ItemHierarchy',
                             operator: '$in',
@@ -208,12 +214,6 @@ Ext.define('CustomApp', {
             Ext.getCmp('piBurnupChart').destroy();
         }
 
-        var rawChartData = [];
-
-        _.each(app.portfolioIds, function(item) {
-            rawChartData.push(item.raw);
-        });
-
         var objList = [];
 
         var objAr = app.objStr.split(" ");
@@ -223,10 +223,9 @@ Ext.define('CustomApp', {
             objList.push(Number(str));
         });
 
-        Ext.getCmp('piBurnupBox').add({
-            xtype: 'rallychart',
+        var piBurnupChart = Ext.create( 'Rally.ui.chart.Chart', {
             id: 'piBurnupChart',
-            calculatorType: 'Rally.app.WorkItemsForIntiative.BurnCalculator',
+            calculatorType: 'BurnupCalculator',
             calculatorConfig: {
                 completedScheduleStateNames: ['Accepted', 'Released']
             },
@@ -239,6 +238,13 @@ Ext.define('CustomApp', {
                 fetch: ['ScheduleState', 'PlanEstimate'],
                 hydrate: ['ScheduleState']
             },
+
+            chartColors: [  Rally.util.Colors.logo_red,
+                            Rally.util.Colors.lime_med,
+                            Rally.util.Colors.blue_med,
+                            Rally.util.Colors.orange_bright
+                        ],
+
             chartConfig: {
                         chart: {
                             defaultSeriesType: 'area',
@@ -250,7 +256,7 @@ Ext.define('CustomApp', {
                         xAxis: {
                             categories: [],
                             tickmarkPlacement: 'on',
-                            tickInterval: 5,
+                            tickInterval: 10,
                             title: {
                                 text: 'Date',
                                 margin: 10
@@ -260,7 +266,8 @@ Ext.define('CustomApp', {
                             {
                                 title: {
                                     text: 'Points'
-                                }
+                                },
+                                min: 0
                             }
                         ],
                         tooltip: {
@@ -287,21 +294,43 @@ Ext.define('CustomApp', {
                         }
                     }
         });
+        Ext.getCmp('piBurnupBox').add(piBurnupChart);
 
     },
+
+    _getFirstStartDate: function (app){
+        var startDate = new Date();
+
+        _.each(app.portfolioIds, function(item) {
+            if (item.data.PlannedStartDate !== ""){
+                if (Rally.util.DateTime.getDifference(startDate, new Date(item.data.PlannedStartDate), 'day' ) > 0) {
+                    startDate = Ext.Date.parse(item.data.PlannedStartDate, 'c');
+                }
+            }
+        });
+        return startDate;
+    },
+
+    _getLastEndDate: function (app){
+        var endDate = new Date();
+
+        _.each(app.portfolioIds, function(item) {
+            if (item.data.PlannedEndDate !== ""){
+                if (Rally.util.DateTime.getDifference(endDate, new Date(item.data.PlannedEndDate), 'day' ) < 0) {
+                    endDate = Ext.Date.parse(item.data.PlannedEndDate, 'c');
+                }
+            }
+        });
+        return endDate;
+    },
+
 
     _piBurndownChart: function(app) {
 
 
-        if ( Ext.getCmp('piBurnupChart')){
-            Ext.getCmp('piBurnupChart').destroy();
+        if ( Ext.getCmp('piBurndownChart')){
+            Ext.getCmp('piBurndownChart').destroy();
         }
-
-        var rawChartData = [];
-
-        _.each(app.portfolioIds, function(item) {
-            rawChartData.push(item.raw);
-        });
 
         var objList = [];
 
@@ -318,9 +347,108 @@ Ext.define('CustomApp', {
             return;
         }
 
+        var burndownchart = Ext.create( 'Rally.ui.chart.Chart', {
+            id: 'piBurndownchart',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: {
+                find: {
+                    _TypeHierarchy: 'HierarchicalRequirement',
+                    _ItemHierarchy: {$in:objList},
+                    Children: null
+                },
+
+                fetch: ['ScheduleState', 'PlanEstimate', 'ObjectId', '_ValidFrom', '_ValidTo', 'To Do'],
+                hydrate: ['ScheduleState'],
+                sort: {
+                    "_ValidFrom": 1
+                },
+                compress: true,
+                useHttpPost: true
+            },
+            calculatorType: 'BurndownCalculator',
+            calculatorConfig: {
+                timeZone: "GMT",
+                completedScheduleStateNames: ["Accepted", "Released"],
+                enableProjections: true,
+                startDate: app._getFirstStartDate(app),
+                endDate: app._getLastEndDate(app)
+            },
+
+            chartColors: [  Rally.util.Colors.logo_red,
+                            Rally.util.Colors.lime_med,
+                            Rally.util.Colors.blue_med,
+                            Rally.util.Colors.orange_bright
+                        ],
+
+            chartConfig: {
+                chart: {
+                    zoomType: "xy"
+                },
+                title: {
+                    text: 'PI Burndown (Planned Estimate)'
+                },
+                xAxis: {
+                    categories: [],
+                    tickmarkPlacement: "on",
+                    tickInterval: 14,
+                    title: {
+                        text: "Days",
+                        margin: 12
+                    },
+                    maxPadding: 0.25,
+                    labels: {
+                        x: 0,
+                        y: 20,
+                        overflow: "justify"
+                    }
+                },
+                yAxis: [
+                    {
+                        title: {
+                            text: 'Points'
+                        },
+                        min: 0
+                    }
+                ],
+                tooltip: {
+                    formatter: function () {
+                        var floatValue = parseFloat(this.y),
+                            value = this.y;
+
+                        if (!isNaN(floatValue)) {
+                            value = Math.floor(floatValue * 100) / 100;
+                        }
+
+                        return "" + this.x + "<br />" + this.series.name + ": " + value;
+                    }
+                },
+                plotOptions: {
+                    series: {
+                        marker: {
+                            enabled: false,
+                            states: {
+                                hover: {
+                                    enabled: true
+                                }
+                            }
+                        },
+                        connectNulls: true
+                    },
+                    column: {
+                        pointPadding: 0,
+                        borderWidth: 0,
+                        stacking: null,
+                        shadow: false
+                    }
+                }
+            }
+        });
+        Ext.util.Observable.capture( burndownchart, function(event) { console.log(event, arguments);});
+        Ext.getCmp('piBurndownBox').add(burndownchart);
     },
 
     _piCustomGrid: function(app) {
+
 
         if (Ext.getCmp('piGrid'))
         {
@@ -347,14 +475,11 @@ Ext.define('CustomApp', {
 
     },
 
-    _itemInList: function(item) {
-        debugger;
-    },
-
     _updateDetailsPanes: function(app){
 
         //Add the first chart after the header.
         app._piBurnupChart(app);
+        app._piBurndownChart(app);
 //        app._piCustomGrid(app);
     },
 
@@ -433,62 +558,6 @@ Ext.define('CustomApp', {
 
         Ext.getCmp('headerBox').insert(0, typeSelect);
 
-
-
     }
 });
 
-Ext.define('Rally.app.WorkItemsForIntiative.BurnCalculator', {
-                extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
-                config: {
-                    completedScheduleStateNames: ['Accepted']
-                },
-            
-                constructor: function(config) {
-                    this.initConfig(config);
-                    this.callParent(arguments);
-                },
-            
-                getDerivedFieldsOnInput: function() {
-                    var completedScheduleStateNames = this.getCompletedScheduleStateNames();
-                    return [
-                        {
-                            "as": "Planned",
-                            "f": function(snapshot) {
-                                if (snapshot.PlanEstimate) {
-                                    return snapshot.PlanEstimate;
-                                }
-            
-                                return 0;
-                            }
-                        },
-                        {
-                            "as": "PlannedCompleted",
-                            "f": function(snapshot) {
-                                if (_.contains(completedScheduleStateNames, snapshot.ScheduleState) && snapshot.PlanEstimate) {
-                                    return snapshot.PlanEstimate;
-                                }
-            
-                                return 0;
-                            }
-                        }
-                    ];
-                },
-            
-                getMetrics: function() {
-                    return [
-                        {
-                            "field": "Planned",
-                            "as": "Planned",
-                            "display": "line",
-                            "f": "sum"
-                        },
-                        {
-                            "field": "PlannedCompleted",
-                            "as": "Completed",
-                            "f": "sum",
-                            "display": "column"
-                        }
-                    ];
-                }
-});
