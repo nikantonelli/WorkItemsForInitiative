@@ -3,6 +3,10 @@ WorkItemsForInitiative
 
 ## Overview
 
+A single app that has the ability to select one or more Portfolio items (of any type), work out the User stories, defects and tasks for all of them and then do some charts and graphs.
+
+This is so we don't have to have any timeboxes (iterations or releases) filtering the data
+
 
 ## License
 
