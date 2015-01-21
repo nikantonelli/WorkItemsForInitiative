@@ -1,7 +1,7 @@
 Ext.define('Rally.app.WorkItemsForInitiative.app', {
     extend: 'Rally.app.App',
     componentCls: 'app',
-
+    settingsScope: 'app',
     items:[
         { xtype: 'container',
             id: 'headerBox',
@@ -15,7 +15,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         {
             xtype: 'container',
             id: 'piBurnupBox',
-            border: 1,
+            border: 0,
             style: {
                 borderColor: Rally.util.Colors.cyan,
                 borderStyle: 'solid'
@@ -24,7 +24,16 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         {
             xtype: 'container',
             id: 'piBurndownBox',
-            border: 1,
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
+            id: 'piDefectBox',
+            border: 0,
             style: {
                 borderColor: Rally.util.Colors.cyan,
                 borderStyle: 'solid'
@@ -33,7 +42,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
     ],
 
     piStr: "",
-    objStr: "",
+    objStr: [],
 
     portfolioIds: null,
     workItems: [],
@@ -46,12 +55,11 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             {
                 name: 'epicIDs',
                 xtype: 'rallytextfield',
-                label: " Space separated list of Portfolio Items",
-                readOnly: true
+                hidden: true
             },
             {
                 name: 'epicOBJs',
-                xtype: 'rallytextfield',
+                xtype: 'Ext.Array',
                 hidden: true
             }
         ];
@@ -82,14 +90,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         }
 
         //In the beginning, we have all the items in piStr of type Ext.getCmp('typeSelector').rawValue
-        var objList = [];
-
-        var objAr = app.objStr.split(" ");
-
-        _.each( objAr , function(str) {
-        
-            objList.push(Number(str));
-        });
 
         var piType = Ext.getCmp('typeSelector').rawValue;
 
@@ -102,7 +102,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             filters:  [ {
                             property: '_ItemHierarchy',
                             operator: '$in',
-                            value: objList
+                            value: app.objStr
                         },
                         {
                             property: '_TypeHierarchy',
@@ -178,12 +178,12 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
                     //Refresh the list of stuff we are looking at
                     var itmStr = "";
-                    var objStr = "";
+                    var objStr = [];
 
                     selectedRecord.forEach( function(record) {
                         delim = (itmStr === "")?"":" ";
-                        itmStr += delim + record.get('FormattedID'); //Add a space as delimiter
-                        objStr += delim + record.get('ObjectID').toString(); //Add a space as delimiter
+                        itmStr += delim + record.get('FormattedID');
+                        objStr.push(record.get('ObjectID'));
                     });
 
                     //Save list in the settings field for next time
@@ -214,20 +214,15 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             Ext.getCmp('piBurnupChart').destroy();
         }
 
-        var objList = [];
-
-        var objAr = app.objStr.split(" ");
-
-        _.each( objAr , function(str) {
-        
-            objList.push(Number(str));
-        });
+        var objList = app.objStr;
 
         var piBurnupChart = Ext.create( 'Rally.ui.chart.Chart', {
             id: 'piBurnupChart',
             calculatorType: 'BurnupCalculator',
             calculatorConfig: {
-                completedScheduleStateNames: ['Accepted', 'Released']
+                completedScheduleStateNames: ['Accepted', 'Released'],
+                inProgressScheduleStateNames: ['In-Progress'],
+                toDoScheduleStateNames: ['Triage', 'Defined' ]
             },
             storeConfig: {
                 find: {
@@ -242,7 +237,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             chartColors: [  Rally.util.Colors.logo_red,
                             Rally.util.Colors.lime_med,
                             Rally.util.Colors.blue_med,
-                            Rally.util.Colors.orange_bright
+                            Rally.util.Colors.grey6
                         ],
 
             chartConfig: {
@@ -288,7 +283,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                                 groupPadding: 0.01
                             },
                             column: {
-                                stacking: null,
+                                stacking: 'State',
                                 shadow: false
                             }
                         }
@@ -324,6 +319,73 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         return endDate;
     },
 
+    _piDefectList: function(app) {
+
+        if ( Ext.getCmp('piDefectGrid')){
+            Ext.getCmp('piDefectGrid').destroy();
+        }
+
+
+        var objList = app.objStr;
+
+        var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
+            autoLoad: true,
+            storeId: 'piStore',
+            fetch: ['FormattedID', 'Name', 'ScheduleState', 'PlanEstimate', 'State'],
+            hydrate: ['FormattedID', 'Name', 'ScheduleState','PlanEstimate','State'],
+            filters:  [ {
+                            property: '_ItemHierarchy',
+                            operator: '$in',
+                            value: app.objStr
+                        },
+                        {
+                            property: '_TypeHierarchy',
+                            value: 'Defect'
+                        },
+                        {
+                            property: "__At",
+                            value: "current"    //Get only the latest version
+                        }
+            ],
+            listeners: {
+                load: function(store, data, success) {
+
+                    var defectGrid = Ext.create('Rally.ui.grid.Grid', {
+                        title: 'Defects connected to stories for selected items',
+                        id: 'piDefectGrid',
+                        enableColumnMove: true,
+                        enableColumnResize: true,
+                        columnCfgs: [
+                            {
+
+                                text: 'ID',
+                                dataIndex: 'FormattedID',
+
+                            },
+                            {
+                                text: 'Name',
+                                dataIndex: 'Name',
+                                flex: 1
+                            },
+                            {
+                                text: 'State',
+                                dataIndex: 'State'
+                            },
+                            {
+                                text: 'ScheduleState',
+                                dataIndex: 'ScheduleState'
+                            }
+                        ],
+                        store: store
+                    });
+
+                    Ext.getCmp('piDefectBox').add(defectGrid);
+
+                }
+            }
+        });
+
+    },
 
     _piBurndownChart: function(app) {
 
@@ -332,19 +394,11 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             Ext.getCmp('piBurndownChart').destroy();
         }
 
-        var objList = [];
-
-        var objAr = app.objStr.split(" ");
-
-        _.each( objAr , function(str) {
-        
-            objList.push(Number(str));
-        });
+        var objList = app.objStr;
 
         //We need to get the end date for the original item - so that means no multiples
         if (app.piStr.split(' ').length !== 1 ){
-            Rally.ui.notify.Notifier( { message: 'Re-select a single item to get a Burndown Chart'});
-            return;
+            Rally.ui.notify.Notifier.show( { message: 'Re-select a single item to get a meaningful Burndown Chart'});
         }
 
         var burndownchart = Ext.create( 'Rally.ui.chart.Chart', {
@@ -375,9 +429,9 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             },
 
             chartColors: [  Rally.util.Colors.logo_red,
-                            Rally.util.Colors.lime_med,
                             Rally.util.Colors.blue_med,
-                            Rally.util.Colors.orange_bright
+                            Rally.util.Colors.lime_med,
+                            Rally.util.Colors.grey6
                         ],
 
             chartConfig: {
@@ -443,7 +497,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                 }
             }
         });
-        Ext.util.Observable.capture( burndownchart, function(event) { console.log(event, arguments);});
         Ext.getCmp('piBurndownBox').add(burndownchart);
     },
 
@@ -480,6 +533,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         //Add the first chart after the header.
         app._piBurnupChart(app);
         app._piBurndownChart(app);
+        app._piDefectList(app);
 //        app._piCustomGrid(app);
     },
 
@@ -551,6 +605,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                     if (app.piStr){ //When we first come in, this is not set and the user needs to select something
                         app._updatePortfolioItemList(app);
                         app._findAllLowestLevelPIs(app);
+                        app._updateDetailsPanes(app);
                     }
                 }
             }
