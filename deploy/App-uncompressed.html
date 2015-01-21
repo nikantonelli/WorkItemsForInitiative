@@ -299,6 +299,7 @@
                     }
         });
         Ext.getCmp('piBurnupBox').add(piBurnupChart);
+        Ext.getCmp('piBurnupBox').setBorder(1);
 
     },
 
@@ -359,6 +360,11 @@
             listeners: {
                 load: function(store, data, success) {
 
+                    _.each(data, function(record) {
+                        record.set('_ref', '/defect/' + record.get('ObjectID'));
+                        record.set('_type', 'defect');
+                    });
+
                     var defectGrid = Ext.create('Rally.ui.grid.Grid', {
                         title: 'Defects connected to stories for selected items',
                         id: 'piDefectGrid',
@@ -369,7 +375,6 @@
                                 xtype: 'templatecolumn',
                                 text: 'ID',
                                 dataIndex: 'FormattedID',
-                                width: 100,
                                 tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate')
                             },
                             {
@@ -380,16 +385,13 @@
                             {
                                 text: 'State',
                                 dataIndex: 'State'
-                            },
-                            {
-                                text: 'ScheduleState',
-                                dataIndex: 'ScheduleState'
                             }
                         ],
                         store: store
                     });
 
                     Ext.getCmp('piDefectBox').add(defectGrid);
+                    Ext.getCmp('piDefectBox').setBorder(1);
 
                 }
             }
@@ -508,6 +510,7 @@
             }
         });
         Ext.getCmp('piBurndownBox').add(burndownchart);
+        Ext.getCmp('piBurndownBox').setBorder(1);
     },
 
     _piCustomGrid: function(app) {
@@ -535,6 +538,7 @@
         });
 
         Ext.getCmp('piGridBox').add(piGrid);
+        Ext.getCmp('piGridBox').setBorder(1);
 
     },
 
@@ -612,11 +616,11 @@
                     //When the typeSelector is loaded, we have all the type information so that we can now
                     //update the details panes as well
 
-                    if (app.piStr){ //When we first come in, this is not set and the user needs to select something
-                        app._updatePortfolioItemList(app);
-                        app._findAllLowestLevelPIs(app);
-                        app._updateDetailsPanes(app);
-                    }
+//                    if (app.piStr){ //When we first come in, this is not set and the user needs to select something
+//                        app._updatePortfolioItemList(app);
+//                        app._findAllLowestLevelPIs(app);
+//                        app._updateDetailsPanes(app);
+//                    }
                 }
             }
         });

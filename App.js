@@ -38,6 +38,24 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                 borderColor: Rally.util.Colors.cyan,
                 borderStyle: 'solid'
             }
+        },
+        {
+            xtype: 'container',
+            id: 'piStoryBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
+            id: 'piTaskBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
         }
     ],
 
@@ -290,6 +308,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                     }
         });
         Ext.getCmp('piBurnupBox').add(piBurnupChart);
+        Ext.getCmp('piBurnupBox').setBorder(1);
 
     },
 
@@ -350,6 +369,11 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             listeners: {
                 load: function(store, data, success) {
 
+                    _.each(data, function(record) {
+                        record.set('_ref', '/defect/' + record.get('ObjectID'));
+                        record.set('_type', 'defect');
+                    });
+
                     var defectGrid = Ext.create('Rally.ui.grid.Grid', {
                         title: 'Defects connected to stories for selected items',
                         id: 'piDefectGrid',
@@ -357,10 +381,11 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                         enableColumnResize: true,
                         columnCfgs: [
                             {
-
+                                xtype: 'templatecolumn',
                                 text: 'ID',
                                 dataIndex: 'FormattedID',
-
+                                tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
+                                width: 50
                             },
                             {
                                 text: 'Name',
@@ -372,14 +397,173 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                                 dataIndex: 'State'
                             },
                             {
-                                text: 'ScheduleState',
-                                dataIndex: 'ScheduleState'
+                                text: ' Schedule State',
+                                dataIndex: 'ScheduleState',
+                                renderer: function(value) {
+                                    return value;
+                                }
                             }
                         ],
+                        sortableColumns: true,
                         store: store
                     });
 
                     Ext.getCmp('piDefectBox').add(defectGrid);
+                    Ext.getCmp('piDefectBox').setBorder(1);
+
+                }
+            }
+        });
+
+    },
+
+    _piUserList: function(app) {
+
+        if ( Ext.getCmp('piUserStoryGrid')){
+            Ext.getCmp('piUserStoryGrid').destroy();
+        }
+
+
+        var objList = app.objStr;
+
+        var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
+            autoLoad: true,
+            storeId: 'piStore',
+            fetch: ['FormattedID', 'Name', 'ScheduleState', 'PlanEstimate'],
+            hydrate: ['FormattedID', 'Name', 'ScheduleState','PlanEstimate'],
+            filters:  [ {
+                            property: '_ItemHierarchy',
+                            operator: '$in',
+                            value: app.objStr
+                        },
+                        {
+                            property: '_TypeHierarchy',
+                            value: 'HierarchicalRequirement'
+                        },
+                        {
+                            property: "__At",
+                            value: "current"    //Get only the latest version
+                        }
+            ],
+            listeners: {
+                load: function(store, data, success) {
+
+                    _.each(data, function(record) {
+                        record.set('_ref', '/hierarchicalrequirement/' + record.get('ObjectID'));
+                        record.set('_type', 'userstory');
+                    });
+
+                    var storyGrid = Ext.create('Rally.ui.grid.Grid', {
+                        title: 'Stories for selected items',
+                        id: 'piUserStoryGrid',
+                        enableColumnMove: true,
+                        enableColumnResize: true,
+                        columnCfgs: [
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'ID',
+                                dataIndex: 'FormattedID',
+                                tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
+                                width: 50
+                            },
+                            {
+                                text: 'Name',
+                                dataIndex: 'Name',
+                                flex: 1
+                            },
+                            {
+                                text: ' Schedule State',
+                                dataIndex: 'ScheduleState',
+                                renderer: function(value) {
+                                    return value;
+                                }
+                            }
+                        ],
+                        sortableColumns: true,
+                        store: store
+                    });
+
+                    Ext.getCmp('piStoryBox').add(storyGrid);
+                    Ext.getCmp('piStoryBox').setMargin(10);
+
+                }
+            }
+        });
+
+    },
+    _piBLockersList: function(app) {
+
+        if ( Ext.getCmp('piBlockerGrid')){
+            Ext.getCmp('piBlockerGrid').destroy();
+        }
+
+
+        var objList = app.objStr;
+
+        var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
+            autoLoad: true,
+            storeId: 'piStore',
+            fetch: ['FormattedID', 'Name', 'Blocked', 'BlockedReason', 'ToDo'],
+            hydrate: ['FormattedID', 'Name', 'Blocked','BlockedReason', 'ToDo'],
+            filters:  [ {
+                            property: '_ItemHierarchy',
+                            operator: '$in',
+                            value: app.objStr
+                        },
+                        {
+                            property: '_TypeHierarchy',
+                            value: 'Task'
+                        },
+                        {
+                            property: 'Blocked',
+                            value: true
+                        },
+                        {
+                            property: "__At",
+                            value: "current"    //Get only the latest version
+                        }
+            ],
+            listeners: {
+                load: function(store, data, success) {
+
+                    _.each(data, function(record) {
+                        record.set('_ref', '/task/' + record.get('ObjectID'));
+                        record.set('_type', 'task');
+                    });
+
+                    var storyGrid = Ext.create('Rally.ui.grid.Grid', {
+                        title: 'Blocked Tasks',
+                        id: 'piTaskGrid',
+                        enableColumnMove: true,
+                        enableColumnResize: true,
+                        columnCfgs: [
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'ID',
+                                dataIndex: 'FormattedID',
+                                tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
+                                width: 50
+                            },
+                            {
+                                text: 'Name',
+                                dataIndex: 'Name',
+                                flex: 1
+                            },
+                            {
+                                text: 'Blocked Reason',
+                                dataIndex: 'BlockedReason',
+                            },
+                            {
+                                text: 'To Do',
+                                dataIndex: 'ToDo',
+                            }
+                        ],
+                        sortableColumns: true,
+                        store: store
+                    });
+
+                    Ext.getCmp('piTaskBox').add(storyGrid);
+                    Ext.getCmp('piTaskBox').setMargin(10);
 
                 }
             }
@@ -498,34 +682,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             }
         });
         Ext.getCmp('piBurndownBox').add(burndownchart);
-    },
-
-    _piCustomGrid: function(app) {
-
-
-        if (Ext.getCmp('piGrid'))
-        {
-            Ext.getCmp('piGrid').destroy();
-        }
-
-        var piGrid = Ext.create('Rally.ui.grid.Grid', {
-            columnCfgs: [
-                'FormattedID',
-                'Name'
-            ],
-
-            store: Ext.create( 'Rally.data.wsapi.Store', {
-
-                model: app.lowestPiName,
-                filters: [
-                    function(item) { return false; }
-                ]
-            }),
-            id: 'piGrid'
-        });
-
-        Ext.getCmp('piGridBox').add(piGrid);
-
+        Ext.getCmp('piBurndownBox').setBorder(1);
     },
 
     _updateDetailsPanes: function(app){
@@ -534,7 +691,8 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         app._piBurnupChart(app);
         app._piBurndownChart(app);
         app._piDefectList(app);
-//        app._piCustomGrid(app);
+        app._piUserList(app);
+        app._piBLockersList(app);
     },
 
     // The headerbox should contain a feedback textbox for the viewer to see - this may need to have more information!
@@ -602,11 +760,11 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                     //When the typeSelector is loaded, we have all the type information so that we can now
                     //update the details panes as well
 
-                    if (app.piStr){ //When we first come in, this is not set and the user needs to select something
-                        app._updatePortfolioItemList(app);
-                        app._findAllLowestLevelPIs(app);
-                        app._updateDetailsPanes(app);
-                    }
+//                    if (app.piStr){ //When we first come in, this is not set and the user needs to select something
+//                        app._updatePortfolioItemList(app);
+//                        app._findAllLowestLevelPIs(app);
+//                        app._updateDetailsPanes(app);
+//                    }
                 }
             }
         });
