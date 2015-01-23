@@ -14,21 +14,32 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         },
         {
             xtype: 'container',
-            id: 'piBurnupBox',
-            border: 0,
-            style: {
-                borderColor: Rally.util.Colors.cyan,
-                borderStyle: 'solid'
-            }
-        },
-        {
-            xtype: 'container',
-            id: 'piBurndownBox',
-            border: 0,
-            style: {
-                borderColor: Rally.util.Colors.cyan,
-                borderStyle: 'solid'
-            }
+            layout: 'hbox',
+            height: 500,
+            items: [
+                {
+                    xtype: 'container',
+                    id: 'piBurnupBox',
+                    border: 0,
+                    width: '50%',
+                    margin: 20,
+                    style: {
+                        borderColor: Rally.util.Colors.cyan,
+                        borderStyle: 'solid'
+                    }
+                },
+                {
+                    xtype: 'container',
+                    id: 'piBurndownBox',
+                    width: '50%',
+                    margin: 20,
+                    border: 0,
+                    style: {
+                        borderColor: Rally.util.Colors.cyan,
+                        borderStyle: 'solid'
+                    }
+                }
+            ]
         },
         {
             xtype: 'container',
@@ -51,6 +62,15 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         {
             xtype: 'container',
             id: 'piTaskBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
+            id: 'piTreeBox',
             border: 0,
             style: {
                 borderColor: Rally.util.Colors.cyan,
@@ -389,8 +409,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                             },
                             {
                                 text: 'Name',
-                                dataIndex: 'Name',
-                                flex: 1
+                                dataIndex: 'Name'
                             },
                             {
                                 text: 'State',
@@ -410,7 +429,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
                     Ext.getCmp('piDefectBox').add(defectGrid);
                     Ext.getCmp('piDefectBox').setBorder(1);
-
+                    Ext.getCmp('piDefectBox').setMargin(10);
                 }
             }
         });
@@ -485,7 +504,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
                     Ext.getCmp('piStoryBox').add(storyGrid);
                     Ext.getCmp('piStoryBox').setMargin(10);
-
+                    Ext.getCmp('piStoryBox').setBorder(1);
                 }
             }
         });
@@ -551,11 +570,11 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                             },
                             {
                                 text: 'Blocked Reason',
-                                dataIndex: 'BlockedReason',
+                                dataIndex: 'BlockedReason'
                             },
                             {
                                 text: 'To Do',
-                                dataIndex: 'ToDo',
+                                dataIndex: 'ToDo'
                             }
                         ],
                         sortableColumns: true,
@@ -564,7 +583,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
                     Ext.getCmp('piTaskBox').add(storyGrid);
                     Ext.getCmp('piTaskBox').setMargin(10);
-
+                    Ext.getCmp('piTaskBox').setBorder(1);
                 }
             }
         });
@@ -685,6 +704,24 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         Ext.getCmp('piBurndownBox').setBorder(1);
     },
 
+    _piTreeList: function(app) {
+        var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
+            topLevelModel: 'portfolioitem/' + Ext.getCmp('typeSelector').rawValue,
+            listeners: {
+                initialload: function() {
+
+                    this.topLevelStore.filterBy( function(record) {
+                        return (_.contains(app.objStr, record.get('ObjectID')));
+                    });
+
+                }
+            }
+        });
+
+        Ext.getCmp('piTreeBox').add(tree);
+        Ext.util.Observable.capture( tree, function(event) { console.log(event, arguments);});
+    },
+
     _updateDetailsPanes: function(app){
 
         //Add the first chart after the header.
@@ -693,6 +730,8 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         app._piDefectList(app);
         app._piUserList(app);
         app._piBLockersList(app);
+        app._piTreeList(app);
+
     },
 
     // The headerbox should contain a feedback textbox for the viewer to see - this may need to have more information!

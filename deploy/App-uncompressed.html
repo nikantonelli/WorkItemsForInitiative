@@ -23,25 +23,54 @@
         },
         {
             xtype: 'container',
-            id: 'piBurnupBox',
-            border: 0,
-            style: {
-                borderColor: Rally.util.Colors.cyan,
-                borderStyle: 'solid'
-            }
-        },
-        {
-            xtype: 'container',
-            id: 'piBurndownBox',
-            border: 0,
-            style: {
-                borderColor: Rally.util.Colors.cyan,
-                borderStyle: 'solid'
-            }
+            layout: 'hbox',
+            height: 500,
+            items: [
+                {
+                    xtype: 'container',
+                    id: 'piBurnupBox',
+                    border: 0,
+                    width: '50%',
+                    margin: 20,
+                    style: {
+                        borderColor: Rally.util.Colors.cyan,
+                        borderStyle: 'solid'
+                    }
+                },
+                {
+                    xtype: 'container',
+                    id: 'piBurndownBox',
+                    width: '50%',
+                    margin: 20,
+                    border: 0,
+                    style: {
+                        borderColor: Rally.util.Colors.cyan,
+                        borderStyle: 'solid'
+                    }
+                }
+            ]
         },
         {
             xtype: 'container',
             id: 'piDefectBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
+            id: 'piStoryBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
+            id: 'piTaskBox',
             border: 0,
             style: {
                 borderColor: Rally.util.Colors.cyan,
@@ -375,7 +404,8 @@
                                 xtype: 'templatecolumn',
                                 text: 'ID',
                                 dataIndex: 'FormattedID',
-                                tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate')
+                                tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
+                                width: 50
                             },
                             {
                                 text: 'Name',
@@ -385,14 +415,176 @@
                             {
                                 text: 'State',
                                 dataIndex: 'State'
+                            },
+                            {
+                                text: ' Schedule State',
+                                dataIndex: 'ScheduleState',
+                                renderer: function(value) {
+                                    return value;
+                                }
                             }
                         ],
+                        sortableColumns: true,
                         store: store
                     });
 
                     Ext.getCmp('piDefectBox').add(defectGrid);
                     Ext.getCmp('piDefectBox').setBorder(1);
+                    Ext.getCmp('piDefectBox').setMargin(10);
+                }
+            }
+        });
 
+    },
+
+    _piUserList: function(app) {
+
+        if ( Ext.getCmp('piUserStoryGrid')){
+            Ext.getCmp('piUserStoryGrid').destroy();
+        }
+
+
+        var objList = app.objStr;
+
+        var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
+            autoLoad: true,
+            storeId: 'piStore',
+            fetch: ['FormattedID', 'Name', 'ScheduleState', 'PlanEstimate'],
+            hydrate: ['FormattedID', 'Name', 'ScheduleState','PlanEstimate'],
+            filters:  [ {
+                            property: '_ItemHierarchy',
+                            operator: '$in',
+                            value: app.objStr
+                        },
+                        {
+                            property: '_TypeHierarchy',
+                            value: 'HierarchicalRequirement'
+                        },
+                        {
+                            property: "__At",
+                            value: "current"    //Get only the latest version
+                        }
+            ],
+            listeners: {
+                load: function(store, data, success) {
+
+                    _.each(data, function(record) {
+                        record.set('_ref', '/hierarchicalrequirement/' + record.get('ObjectID'));
+                        record.set('_type', 'userstory');
+                    });
+
+                    var storyGrid = Ext.create('Rally.ui.grid.Grid', {
+                        title: 'Stories for selected items',
+                        id: 'piUserStoryGrid',
+                        enableColumnMove: true,
+                        enableColumnResize: true,
+                        columnCfgs: [
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'ID',
+                                dataIndex: 'FormattedID',
+                                tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
+                                width: 50
+                            },
+                            {
+                                text: 'Name',
+                                dataIndex: 'Name',
+                                flex: 1
+                            },
+                            {
+                                text: ' Schedule State',
+                                dataIndex: 'ScheduleState',
+                                renderer: function(value) {
+                                    return value;
+                                }
+                            }
+                        ],
+                        sortableColumns: true,
+                        store: store
+                    });
+
+                    Ext.getCmp('piStoryBox').add(storyGrid);
+                    Ext.getCmp('piStoryBox').setMargin(10);
+                    Ext.getCmp('piStoryBox').setBorder(1);
+                }
+            }
+        });
+
+    },
+    _piBLockersList: function(app) {
+
+        if ( Ext.getCmp('piBlockerGrid')){
+            Ext.getCmp('piBlockerGrid').destroy();
+        }
+
+
+        var objList = app.objStr;
+
+        var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
+            autoLoad: true,
+            storeId: 'piStore',
+            fetch: ['FormattedID', 'Name', 'Blocked', 'BlockedReason', 'ToDo'],
+            hydrate: ['FormattedID', 'Name', 'Blocked','BlockedReason', 'ToDo'],
+            filters:  [ {
+                            property: '_ItemHierarchy',
+                            operator: '$in',
+                            value: app.objStr
+                        },
+                        {
+                            property: '_TypeHierarchy',
+                            value: 'Task'
+                        },
+                        {
+                            property: 'Blocked',
+                            value: true
+                        },
+                        {
+                            property: "__At",
+                            value: "current"    //Get only the latest version
+                        }
+            ],
+            listeners: {
+                load: function(store, data, success) {
+
+                    _.each(data, function(record) {
+                        record.set('_ref', '/task/' + record.get('ObjectID'));
+                        record.set('_type', 'task');
+                    });
+
+                    var storyGrid = Ext.create('Rally.ui.grid.Grid', {
+                        title: 'Blocked Tasks',
+                        id: 'piTaskGrid',
+                        enableColumnMove: true,
+                        enableColumnResize: true,
+                        columnCfgs: [
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'ID',
+                                dataIndex: 'FormattedID',
+                                tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
+                                width: 50
+                            },
+                            {
+                                text: 'Name',
+                                dataIndex: 'Name',
+                                flex: 1
+                            },
+                            {
+                                text: 'Blocked Reason',
+                                dataIndex: 'BlockedReason'
+                            },
+                            {
+                                text: 'To Do',
+                                dataIndex: 'ToDo'
+                            }
+                        ],
+                        sortableColumns: true,
+                        store: store
+                    });
+
+                    Ext.getCmp('piTaskBox').add(storyGrid);
+                    Ext.getCmp('piTaskBox').setMargin(10);
+                    Ext.getCmp('piTaskBox').setBorder(1);
                 }
             }
         });
@@ -513,42 +705,14 @@
         Ext.getCmp('piBurndownBox').setBorder(1);
     },
 
-    _piCustomGrid: function(app) {
-
-
-        if (Ext.getCmp('piGrid'))
-        {
-            Ext.getCmp('piGrid').destroy();
-        }
-
-        var piGrid = Ext.create('Rally.ui.grid.Grid', {
-            columnCfgs: [
-                'FormattedID',
-                'Name'
-            ],
-
-            store: Ext.create( 'Rally.data.wsapi.Store', {
-
-                model: app.lowestPiName,
-                filters: [
-                    function(item) { return false; }
-                ]
-            }),
-            id: 'piGrid'
-        });
-
-        Ext.getCmp('piGridBox').add(piGrid);
-        Ext.getCmp('piGridBox').setBorder(1);
-
-    },
-
     _updateDetailsPanes: function(app){
 
         //Add the first chart after the header.
         app._piBurnupChart(app);
         app._piBurndownChart(app);
         app._piDefectList(app);
-//        app._piCustomGrid(app);
+        app._piUserList(app);
+        app._piBLockersList(app);
     },
 
     // The headerbox should contain a feedback textbox for the viewer to see - this may need to have more information!
