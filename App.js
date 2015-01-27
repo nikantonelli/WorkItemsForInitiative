@@ -703,6 +703,10 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
     _piTreeList: function(app) {
 
+        if ( Ext.getCmp('piHierarchy')){
+            Ext.getCmp('piHierarchy').destroy();
+        }
+
         // Create a sequence of OR 'ed filters
         var oredFilters = [];
 
@@ -710,23 +714,26 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             oredFilters.push({ property: 'ObjectID', value: objID});
         });
 
+        var piType = 'portfolioitem/' + Ext.getCmp('typeSelector').rawValue;
+
         //Can only do tree if one item is selected for now
-//        if (app.objStr.length  === 1 ){
+        if (app.objStr.length  === 1 ){
             var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
                 id: 'piHierarchy',
-                topLevelModel: 'portfolioitem/' + Ext.getCmp('typeSelector').rawValue,
+                topLevelModel: piType,
                 topLevelStoreConfig: {
                     filters: Rally.data.wsapi.Filter.or(oredFilters)
-                }
+                },
+                emptyText: ' No items of type ' + piType + ' found' //If we select the wront thing (using "ignore type") then we get nothing
             });
             Ext.getCmp('piTreeBox').add(tree);
             Ext.getCmp('piTreeBox').setBorder(1);
             Ext.getCmp('piTreeBox').setMargin(10);
 
-//        }
-//        else {
-//            Rally.util.notifier.Notifier.show( { message: 'Select a single item for Portfolio Hierarchy to be shown'} );
-//        }
+        }
+        else {
+            Rally.util.notifier.Notifier.show( { message: 'Select a single item and the correct type for Portfolio Hierarchy to be shown'} );
+        }
     },
 
     _updateDetailsPanes: function(app){
