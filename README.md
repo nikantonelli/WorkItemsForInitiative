@@ -7,7 +7,7 @@ A single app that has the ability to select one or more Portfolio items (of any 
 
 This is so we don't have to have any timeboxes (iterations or releases) filtering the data
 
-![alt text](https://github.com/nikantonelli/WorkItemsForInitiative/master/Doc/EditedImage.png)
+![alt text](https://github.com/nikantonelli/WorkItemsForInitiative/blob/master/Doc/EditedImage.png)
 
 ## License
 
