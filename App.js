@@ -14,6 +14,15 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         },
         {
             xtype: 'container',
+            id: 'piTreeBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
             layout: 'hbox',
             height: 500,
             items: [
@@ -62,15 +71,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         {
             xtype: 'container',
             id: 'piTaskBox',
-            border: 0,
-            style: {
-                borderColor: Rally.util.Colors.cyan,
-                borderStyle: 'solid'
-            }
-        },
-        {
-            xtype: 'container',
-            id: 'piTreeBox',
             border: 0,
             style: {
                 borderColor: Rally.util.Colors.cyan,
@@ -233,9 +233,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                     });
                     app.piStr = itmStr;
                     app.objStr = objStr;
-
-                    //Refresh the text box in the UI
-                    app._updatePortfolioItemList(app);
 
                     //Fetch a new list of lowest level PIs for the items chosen
                     app._findAllLowestLevelPIs(app);
@@ -705,51 +702,44 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
     },
 
     _piTreeList: function(app) {
-        var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
-            topLevelModel: 'portfolioitem/' + Ext.getCmp('typeSelector').rawValue,
-            listeners: {
-                initialload: function() {
 
-                    this.topLevelStore.filterBy( function(record) {
-                        return (_.contains(app.objStr, record.get('ObjectID')));
-                    });
+        // Create a sequence of OR 'ed filters
+        var oredFilters = [];
 
-                }
-            }
+        _.each(app.objStr, function (objID) {
+            oredFilters.push({ property: 'ObjectID', value: objID});
         });
 
-        Ext.getCmp('piTreeBox').add(tree);
-        Ext.util.Observable.capture( tree, function(event) { console.log(event, arguments);});
+        //Can only do tree if one item is selected for now
+//        if (app.objStr.length  === 1 ){
+            var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
+                id: 'piHierarchy',
+                topLevelModel: 'portfolioitem/' + Ext.getCmp('typeSelector').rawValue,
+                topLevelStoreConfig: {
+                    filters: Rally.data.wsapi.Filter.or(oredFilters)
+                }
+            });
+            Ext.getCmp('piTreeBox').add(tree);
+            Ext.getCmp('piTreeBox').setBorder(1);
+            Ext.getCmp('piTreeBox').setMargin(10);
+
+//        }
+//        else {
+//            Rally.util.notifier.Notifier.show( { message: 'Select a single item for Portfolio Hierarchy to be shown'} );
+//        }
     },
 
     _updateDetailsPanes: function(app){
 
         //Add the first chart after the header.
+        app._piTreeList(app);
         app._piBurnupChart(app);
         app._piBurndownChart(app);
         app._piDefectList(app);
         app._piUserList(app);
         app._piBLockersList(app);
-        app._piTreeList(app);
 
-    },
 
-    // The headerbox should contain a feedback textbox for the viewer to see - this may need to have more information!
-    _updatePortfolioItemList: function(app){
-
-        if (Ext.getCmp('selectionFromSettings')){
-            Ext.getCmp('selectionFromSettings').destroy();
-        }
-        var txtMsg = Ext.create( 'Ext.form.field.Text', {
-                    fieldLabel: 'Current Selected',
-                    id: 'selectionFromSettings',
-                    grow: true,
-                    value: app.piStr,
-                    border: 0,
-                    margin: 10,
-                    readOnly: true
-                });
-        Ext.getCmp('headerBox').add(txtMsg);
     },
 
     typeStore: null,
@@ -796,14 +786,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                         }
                     });
 
-                    //When the typeSelector is loaded, we have all the type information so that we can now
-                    //update the details panes as well
-
-//                    if (app.piStr){ //When we first come in, this is not set and the user needs to select something
-//                        app._updatePortfolioItemList(app);
-//                        app._findAllLowestLevelPIs(app);
-//                        app._updateDetailsPanes(app);
-//                    }
                 }
             }
         });
