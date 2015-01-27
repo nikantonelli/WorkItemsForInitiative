@@ -23,6 +23,27 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         },
         {
             xtype: 'container',
+            id: 'piStatusBox',
+            border: 0,
+            layout: 'column',
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            },
+            items: [ {
+                    xtype: 'container',
+                    id: 'piDefectStatusBox',
+                    hidden: true
+                },
+                {
+                    xtype: 'container',
+                    id: 'piTaskStatusBox',
+                    hidden: true
+                }
+            ]
+        },
+        {
+            xtype: 'container',
             layout: 'hbox',
             height: 500,
             items: [
@@ -381,6 +402,11 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                         {
                             property: "__At",
                             value: "current"    //Get only the latest version
+                        },
+                        {
+                            property: 'State',
+                            operator: '!=',
+                            value: 'Closed'
                         }
             ],
             listeners: {
@@ -392,7 +418,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                     });
 
                     var defectGrid = Ext.create('Rally.ui.grid.Grid', {
-                        title: 'Defects connected to stories for selected items',
+                        title: 'Active Defects connected to stories for selected items',
                         id: 'piDefectGrid',
                         enableColumnMove: true,
                         enableColumnResize: true,
@@ -427,10 +453,17 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                     Ext.getCmp('piDefectBox').add(defectGrid);
                     Ext.getCmp('piDefectBox').setBorder(1);
                     Ext.getCmp('piDefectBox').setMargin(10);
+
+                    //Update the status banner
+                    app._defectStatusBanner(app, data.length);
                 }
             }
         });
 
+    },
+
+    _defectStatusBanner: function (app, length) {
+debugger;
     },
 
     _piUserList: function(app) {
