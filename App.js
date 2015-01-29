@@ -33,6 +33,8 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             items: [ {
                     xtype: 'container',
                     id: 'piDefectStatusBox',
+                    width: 200,
+                    height: 200,
                     hidden: true
                 },
                 {
@@ -73,6 +75,15 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         },
         {
             xtype: 'container',
+            id: 'piTaskBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
             id: 'piDefectBox',
             border: 0,
             style: {
@@ -83,15 +94,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         {
             xtype: 'container',
             id: 'piStoryBox',
-            border: 0,
-            style: {
-                borderColor: Rally.util.Colors.cyan,
-                borderStyle: 'solid'
-            }
-        },
-        {
-            xtype: 'container',
-            id: 'piTaskBox',
             border: 0,
             style: {
                 borderColor: Rally.util.Colors.cyan,
@@ -434,10 +436,10 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                                 text: 'Name',
                                 dataIndex: 'Name'
                             },
-                            {
-                                text: 'State',
-                                dataIndex: 'State'
-                            },
+//                            {
+//                                text: 'State',
+//                                dataIndex: 'State'
+//                            },
                             {
                                 text: ' Schedule State',
                                 dataIndex: 'ScheduleState',
@@ -455,15 +457,58 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                     Ext.getCmp('piDefectBox').setMargin(10);
 
                     //Update the status banner
-                    app._defectStatusBanner(app, data.length);
+                    app._defectStatusBanner(app, store);
                 }
             }
         });
 
     },
 
-    _defectStatusBanner: function (app, length) {
-debugger;
+    _defectStatusBanner: function (app, store) {
+
+        var dispField = 'PlanEstimate';
+
+        var defectPie = Ext.create('Ext.Container', {
+            xtype: 'pie',
+            id: 'piDefectStatusBox',
+            animate: true,
+            width: 100,
+            height: 100,
+            store: store,
+            theme: 'Base:gradients',
+            series: [{
+                type: 'pie',
+                angleField: dispField,
+                showInLegend: true,
+                tips: {
+                    trackMouse: true,
+                    width: 140,
+                    height: 28,
+                    renderer: function(storeItem, item) {
+                        // calculate and display percentage on hover
+                        var total = 0;
+                        store.each(function(rec) {
+                            total += rec.get(dispField);
+                        });
+                        this.setTitle(storeItem.get('FormattedID') + ': ' + storeItem.get(dispField));
+                    }
+                },
+                highlight: {
+                    segment: {
+                        margin: 20
+                    }
+                },
+                label: {
+                    field: 'name',
+                    display: 'rotate',
+                    contrast: true,
+                    font: '18px Arial'
+                }
+            }]
+        });
+        Ext.getCmp('piDefectStatusBox').add(defectPie);
+        Ext.getCmp('piDefectStatusBox').show();
+
     },
 
     _piUserList: function(app) {
@@ -492,6 +537,11 @@ debugger;
                         {
                             property: "__At",
                             value: "current"    //Get only the latest version
+                        },
+                        {
+                            property: 'ScheduleState',
+                            operator: '<',
+                            value: 'Accepted'
                         }
             ],
             listeners: {
@@ -503,7 +553,7 @@ debugger;
                     });
 
                     var storyGrid = Ext.create('Rally.ui.grid.Grid', {
-                        title: 'Stories for selected items',
+                        title: 'Stories not yet Accepted for selected items',
                         id: 'piUserStoryGrid',
                         enableColumnMove: true,
                         enableColumnResize: true,
@@ -582,7 +632,7 @@ debugger;
 
                     var storyGrid = Ext.create('Rally.ui.grid.Grid', {
                         title: 'Blocked Tasks',
-                        id: 'piTaskGrid',
+                        id: 'piBlockerGrid',
                         enableColumnMove: true,
                         enableColumnResize: true,
                         columnCfgs: [
@@ -635,7 +685,7 @@ debugger;
         }
 
         var burndownchart = Ext.create( 'Rally.ui.chart.Chart', {
-            id: 'piBurndownchart',
+            id: 'piBurndownChart',
             storeType: 'Rally.data.lookback.SnapshotStore',
             storeConfig: {
                 find: {
@@ -749,24 +799,18 @@ debugger;
 
         var piType = 'portfolioitem/' + Ext.getCmp('typeSelector').rawValue;
 
-        //Can only do tree if one item is selected for now
-        if (app.objStr.length  === 1 ){
-            var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
-                id: 'piHierarchy',
-                topLevelModel: piType,
-                topLevelStoreConfig: {
-                    filters: Rally.data.wsapi.Filter.or(oredFilters)
-                },
-                emptyText: ' No items of type ' + piType + ' found' //If we select the wront thing (using "ignore type") then we get nothing
-            });
-            Ext.getCmp('piTreeBox').add(tree);
-            Ext.getCmp('piTreeBox').setBorder(1);
-            Ext.getCmp('piTreeBox').setMargin(10);
+        var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
+            id: 'piHierarchy',
+            topLevelModel: piType,
+            topLevelStoreConfig: {
+                filters: Rally.data.wsapi.Filter.or(oredFilters)
+            },
+            emptyText: ' No items of type ' + piType + ' found' //If we select the wront thing (using "ignore type") then we get nothing
+        });
+        Ext.getCmp('piTreeBox').add(tree);
+        Ext.getCmp('piTreeBox').setBorder(1);
+        Ext.getCmp('piTreeBox').setMargin(10);
 
-        }
-        else {
-            Rally.util.notifier.Notifier.show( { message: 'Select a single item and the correct type for Portfolio Hierarchy to be shown'} );
-        }
     },
 
     _updateDetailsPanes: function(app){
