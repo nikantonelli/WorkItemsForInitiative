@@ -84,6 +84,15 @@
         },
         {
             xtype: 'container',
+            id: 'piTaskBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
             id: 'piDefectBox',
             border: 0,
             style: {
@@ -94,15 +103,6 @@
         {
             xtype: 'container',
             id: 'piStoryBox',
-            border: 0,
-            style: {
-                borderColor: Rally.util.Colors.cyan,
-                borderStyle: 'solid'
-            }
-        },
-        {
-            xtype: 'container',
-            id: 'piTaskBox',
             border: 0,
             style: {
                 borderColor: Rally.util.Colors.cyan,
@@ -445,10 +445,10 @@
                                 text: 'Name',
                                 dataIndex: 'Name'
                             },
-                            {
-                                text: 'State',
-                                dataIndex: 'State'
-                            },
+//                            {
+//                                text: 'State',
+//                                dataIndex: 'State'
+//                            },
                             {
                                 text: ' Schedule State',
                                 dataIndex: 'ScheduleState',
@@ -466,64 +466,58 @@
                     Ext.getCmp('piDefectBox').setMargin(10);
 
                     //Update the status banner
-                    app._defectStatusBanner(app, data.length);
+                    app._defectStatusBanner(app, store);
                 }
             }
         });
 
     },
 
-    _defectStatusBanner: function (app, length) {
+    _defectStatusBanner: function (app, store) {
+
+        var dispField = 'PlanEstimate';
 
         var defectPie = Ext.create('Ext.Container', {
-            xtype: 'Highcharts.Chart',
-            config: {
-                chart: {
-                    plotBackgroundColor: null,
-                    plotBorderWidth: null,
-                    plotShadow: false,
-                    reflow: false
-                },
-                title: {
-                    text: 'Browser market shares at a specific website, 2014'
-                },
-                tooltip: {
-                    pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
-                },
-                plotOptions: {
-                    pie: {
-                        allowPointSelect: true,
-                        cursor: 'pointer',
-                        dataLabels: {
-                            enabled: true,
-                            format: '<b>{point.name}</b>: {point.percentage:.1f} %',
-                            style: {
-                                color: (Highcharts.theme && Highcharts.theme.contrastTextColor) || 'black'
-                            }
-                        }
+            xtype: 'pie',
+            id: 'piDefectStatusBox',
+            animate: true,
+            width: 100,
+            height: 100,
+            store: store,
+            theme: 'Base:gradients',
+            series: [{
+                type: 'pie',
+                angleField: dispField,
+                showInLegend: true,
+                tips: {
+                    trackMouse: true,
+                    width: 140,
+                    height: 28,
+                    renderer: function(storeItem, item) {
+                        // calculate and display percentage on hover
+                        var total = 0;
+                        store.each(function(rec) {
+                            total += rec.get(dispField);
+                        });
+                        this.setTitle(storeItem.get('FormattedID') + ': ' + storeItem.get(dispField));
                     }
                 },
-                series: [{
-                    type: 'pie',
-                    name: 'Browser share',
-                    data: [
-                        ['Firefox',   45.0],
-                        ['IE',       26.8],
-                        {
-                            name: 'Chrome',
-                            y: 12.8,
-                            sliced: true,
-                            selected: true
-                        },
-                        ['Safari',    8.5],
-                        ['Opera',     6.2],
-                        ['Others',   0.7]
-                    ]
-                }],
-            }
-
+                highlight: {
+                    segment: {
+                        margin: 20
+                    }
+                },
+                label: {
+                    field: 'name',
+                    display: 'rotate',
+                    contrast: true,
+                    font: '18px Arial'
+                }
+            }]
         });
-debugger;
+        Ext.getCmp('piDefectStatusBox').add(defectPie);
+        Ext.getCmp('piDefectStatusBox').show();
+
     },
 
     _piUserList: function(app) {
@@ -552,6 +546,11 @@ debugger;
                         {
                             property: "__At",
                             value: "current"    //Get only the latest version
+                        },
+                        {
+                            property: 'ScheduleState',
+                            operator: '<',
+                            value: 'Accepted'
                         }
             ],
             listeners: {
@@ -563,7 +562,7 @@ debugger;
                     });
 
                     var storyGrid = Ext.create('Rally.ui.grid.Grid', {
-                        title: 'Stories for selected items',
+                        title: 'Stories not yet Accepted for selected items',
                         id: 'piUserStoryGrid',
                         enableColumnMove: true,
                         enableColumnResize: true,
@@ -642,7 +641,7 @@ debugger;
 
                     var storyGrid = Ext.create('Rally.ui.grid.Grid', {
                         title: 'Blocked Tasks',
-                        id: 'piTaskGrid',
+                        id: 'piBlockerGrid',
                         enableColumnMove: true,
                         enableColumnResize: true,
                         columnCfgs: [
@@ -695,7 +694,7 @@ debugger;
         }
 
         var burndownchart = Ext.create( 'Rally.ui.chart.Chart', {
-            id: 'piBurndownchart',
+            id: 'piBurndownChart',
             storeType: 'Rally.data.lookback.SnapshotStore',
             storeConfig: {
                 find: {
@@ -809,24 +808,18 @@ debugger;
 
         var piType = 'portfolioitem/' + Ext.getCmp('typeSelector').rawValue;
 
-        //Can only do tree if one item is selected for now
-        if (app.objStr.length  === 1 ){
-            var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
-                id: 'piHierarchy',
-                topLevelModel: piType,
-                topLevelStoreConfig: {
-                    filters: Rally.data.wsapi.Filter.or(oredFilters)
-                },
-                emptyText: ' No items of type ' + piType + ' found' //If we select the wront thing (using "ignore type") then we get nothing
-            });
-            Ext.getCmp('piTreeBox').add(tree);
-            Ext.getCmp('piTreeBox').setBorder(1);
-            Ext.getCmp('piTreeBox').setMargin(10);
+        var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
+            id: 'piHierarchy',
+            topLevelModel: piType,
+            topLevelStoreConfig: {
+                filters: Rally.data.wsapi.Filter.or(oredFilters)
+            },
+            emptyText: ' No items of type ' + piType + ' found' //If we select the wront thing (using "ignore type") then we get nothing
+        });
+        Ext.getCmp('piTreeBox').add(tree);
+        Ext.getCmp('piTreeBox').setBorder(1);
+        Ext.getCmp('piTreeBox').setMargin(10);
 
-        }
-        else {
-            Rally.util.notifier.Notifier.show( { message: 'Select a single item and the correct type for Portfolio Hierarchy to be shown'} );
-        }
     },
 
     _updateDetailsPanes: function(app){
