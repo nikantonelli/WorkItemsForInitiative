@@ -2,7 +2,7 @@ Ext.define('BurnupCalculator', {
                 extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
                 config: {
                     completedScheduleStateNames: ['Accepted'],
-                    inProgressScheduleStateNames: ['In Progress'],
+                    inProgressScheduleStateNames: ['In Progress', 'Completed'],
                     toDoScheduleStateNames: ['Backlog', 'Defined' ]
                 },
             
@@ -77,7 +77,7 @@ Ext.define('BurnupCalculator', {
                         },
                         {
                             "field": "PlannedCompleted",
-                            "as": "Completed",
+                            "as": "Accepted",
                             "f": "sum",
                             "display": "column"
                         },

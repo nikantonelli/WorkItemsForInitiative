@@ -106,21 +106,29 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
     itmStr: "",
     objStr: [],
 
+    appConfig: {
+        useLowestPiDates: true,
+        autoSelectAll: true,
+        ignoreType: false
+    },
+
     portfolioIds: null,
-    workItems: [],
+    workItems: null,
     chsrDlg: null,
     lowestPiName: "",
 
     getState: function() {
         return {
             itmStr: this.itmStr,
-            objStr: this.objStr
+            objStr: this.objStr,
+            appConfig: this.appConfig
         };
     },
 
     applyState: function(state) {
         this.itmStr = state.itmStr;
         this.objStr = state.objStr;
+        this.appConfig = state.appConfig;
     },
 
 
@@ -210,7 +218,14 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             multiple: true,
 
             storeConfig: {
-                fetch:['UserStories','Name','FormattedID','TypePath','ObjectID','PortfolioItemType'],
+                context: {
+                    project: app.getContext().getProject(),
+                    projectScopeDown: app.getContext().getProjectScopeDown(),
+                    projectScopeUp: app.getContext().getProjectScopeUp(),
+                    workspace: app.getContext().getWorkspace()
+                },
+
+                fetch:['UserStories','Name','FormattedID','TypePath','ObjectID','PortfolioItemType', 'PlannedStartDate','PlannedEndDate'],
                 sorters: [
                     {
                         property: 'PortfolioItemType',
@@ -224,13 +239,15 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             },
 
             listeners: {
-                artifactchosen: function(dialogBox, selectedRecord) {
+                artifactchosen: function(dialogBox, selectedRecords) {
 
                     //Refresh the list of stuff we are looking at
                     var itmStr = "";
                     var objStr = [];
 
-                    selectedRecord.forEach( function(record) {
+                    app.workItems = selectedRecords;
+
+                    selectedRecords.forEach( function(record) {
                         delim = (itmStr === "")?"":" ";
                         itmStr += delim + record.get('FormattedID');
                         objStr.push(record.get('ObjectID'));
@@ -339,8 +356,14 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
     _getFirstStartDate: function (app){
         var startDate = new Date();
+        var itemLst = app.workItems;
 
-        _.each(app.portfolioIds, function(item) {
+        if (app.appConfig.useLowestPiDates === true )
+        {
+            itemLst = app.portfolioIds;
+        }
+
+        _.each(itemLst, function(item) {
             if (item.data.PlannedStartDate !== ""){
                 if (Rally.util.DateTime.getDifference(startDate, new Date(item.data.PlannedStartDate), 'day' ) > 0) {
                     startDate = Ext.Date.parse(item.data.PlannedStartDate, 'c');
@@ -352,8 +375,15 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
     _getLastEndDate: function (app){
         var endDate = new Date();
+        var itemLst = app.workItems;
 
-        _.each(app.portfolioIds, function(item) {
+        if (app.appConfig.useLowestPiDates === true )
+        {
+            itemLst = app.portfolioIds;
+        }
+
+
+        _.each(itemLst, function(item) {
             if (item.data.PlannedEndDate !== ""){
                 if (Rally.util.DateTime.getDifference(endDate, new Date(item.data.PlannedEndDate), 'day' ) < 0) {
                     endDate = Ext.Date.parse(item.data.PlannedEndDate, 'c');
@@ -823,11 +853,30 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         var ignoreType = Ext.create( 'Rally.ui.CheckboxField', {
             fieldLabel: 'Ignore Type',
             id: 'ignoreType',
-            value: false,
-            margin: 10
+            value: app.appConfig.ignoreType,
+            margin: 10,
+            listeners: {
+                change: function(newVal, OldVal, opts) {
+                    app.appConfig.ignoreType = newVal.value;
+                    app.saveState();
+                }
+            }
         });
 
-        Ext.getCmp('headerBox').add(ignoreType);
+        var useLowestPiDates = Ext.create( 'Rally.ui.CheckboxField', {
+            fieldLabel: 'Use Plan Dates of lowest PI type',
+            id: 'useLowestPiDates',
+            value: app.appConfig.useLowestPiDates,
+            margin: 10,
+            listeners: {
+                change: function(newVal, OldVal, opts) {
+                    app.appConfig.useLowestPiDates = newVal.value;
+                    app.saveState();
+                    app._updateDetailsPanes(app);
+                }
+            }
+        });
+
 
         var typeSelect = Ext.create( 'Rally.ui.combobox.PortfolioItemTypeComboBox', {
             id: 'typeSelector',
@@ -844,7 +893,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                     }
 
                     //Add a button so that we can choose something of type in typeSelector
-                    Ext.getCmp('headerBox').insert(2, { xtype: 'rallybutton',
+                    Ext.getCmp('headerBox').add( { xtype: 'rallybutton',
                         margin: 10,
                         id: 'doitButton',
                         text: 'Select Item(s)',
@@ -852,6 +901,9 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                             app._doArtifactChooserDialog(app);
                         }
                     });
+
+                    Ext.getCmp('headerBox').add(ignoreType);
+                    Ext.getCmp('headerBox').add(useLowestPiDates);
 
                 }
             }
