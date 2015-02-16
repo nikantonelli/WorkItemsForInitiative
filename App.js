@@ -2,6 +2,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     settingsScope: 'app',
+    stateful: true,
     items:[
         { xtype: 'container',
             id: 'headerBox',
@@ -102,7 +103,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         }
     ],
 
-    piStr: "",
+    itmStr: "",
     objStr: [],
 
     portfolioIds: null,
@@ -110,32 +111,20 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
     chsrDlg: null,
     lowestPiName: "",
 
-    getSettingsFields: function() {
-
-        var values = [
-            {
-                name: 'epicIDs',
-                xtype: 'rallytextfield',
-                hidden: true
-            },
-            {
-                name: 'epicOBJs',
-                xtype: 'Ext.Array',
-                hidden: true
-            }
-        ];
-
-        _.each(values,function(value){
-            value.labelWidth = 250;
-            value.labelAlign = 'left';
-        });
-
-        return values;
+    getState: function() {
+        return {
+            itmStr: this.itmStr,
+            objStr: this.objStr
+        };
     },
 
+    applyState: function(state) {
+        this.itmStr = state.itmStr;
+        this.objStr = state.objStr;
+    },
+
+
     _findAllLowestLevelPIs: function(app) {
-
-
 
         //Find the lowest level PI type from the store
         if (app.typeStore){
@@ -150,7 +139,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             Rally.ui.notify.Notifier.show({message: 'Portfolio Type Hierarchy not available. Try and reload page'});
         }
 
-        //In the beginning, we have all the items in piStr of type Ext.getCmp('typeSelector').rawValue
+        //In the beginning, we have all the items in itmStr of type Ext.getCmp('typeSelector').rawValue
 
         var piType = Ext.getCmp('typeSelector').rawValue;
 
@@ -247,15 +236,11 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                         objStr.push(record.get('ObjectID'));
                     });
 
-                    //Save list in the settings field for next time
-                    app.updateSettingsValues( {
-                        settings: {
-                            epicIDs: itmStr,
-                            epicOBJs: objStr
-                        }
-                    });
-                    app.piStr = itmStr;
+
+                    app.itmStr = itmStr;
                     app.objStr = objStr;
+
+                    app.saveState();
 
                     //Fetch a new list of lowest level PIs for the items chosen
                     app._findAllLowestLevelPIs(app);
@@ -680,7 +665,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         var objList = app.objStr;
 
         //We need to get the end date for the original item - so that means no multiples
-        if (app.piStr.split(' ').length !== 1 ){
+        if (app.itmStr.split(' ').length !== 1 ){
             Rally.ui.notify.Notifier.show( { message: 'Re-select a single item to get a meaningful Burndown Chart'});
         }
 
@@ -832,15 +817,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
         var app = this;
 
-        //Check to see if there are some items defined in the settings page.
-        ids = app.getSetting('epicIDs');
-        objs = app.getSetting('epicOBJs');
-
-        if ( ids && objs ) {
-            app.piStr = ids ; //user visible
-            app.objStr = objs ; //Hidden for our use
-        }
-
         //The typeSelector will give us a store with the portfolio hierarchy in it.
         //We can work off the back of that
 
@@ -859,7 +835,14 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             listeners: {
 
                 ready: function() {
+
                     app.typeStore = Ext.getCmp('typeSelector').store;
+
+                    //Load the apps if we know what to do
+                    if ( app.itmStr && app.objStr ) {
+                        app._updateDetailsPanes(app);
+                    }
+
                     //Add a button so that we can choose something of type in typeSelector
                     Ext.getCmp('headerBox').insert(2, { xtype: 'rallybutton',
                         margin: 10,
