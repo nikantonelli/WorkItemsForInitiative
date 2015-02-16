@@ -457,7 +457,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                     Ext.getCmp('piDefectBox').setMargin(10);
 
                     //Update the status banner
-                    app._defectStatusBanner(app, store);
+//                    app._defectStatusBanner(app, store);
                 }
             }
         });
