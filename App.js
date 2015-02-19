@@ -218,13 +218,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             multiple: true,
 
             storeConfig: {
-                context: {
-                    project: app.getContext().getProject(),
-                    projectScopeDown: app.getContext().getProjectScopeDown(),
-                    projectScopeUp: app.getContext().getProjectScopeUp(),
-                    workspace: app.getContext().getWorkspace()
-                },
-
                 fetch:['UserStories','Name','FormattedID','TypePath','ObjectID','PortfolioItemType', 'PlannedStartDate','PlannedEndDate'],
                 sorters: [
                     {
