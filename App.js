@@ -820,7 +820,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             topLevelStoreConfig: {
                 filters: Rally.data.wsapi.Filter.or(oredFilters)
             },
-            emptyText: ' No items of type ' + piType + ' found' //If we select the wront thing (using "ignore type") then we get nothing
+            emptyText: ' No items of type ' + piType + ' selected' //If we select the wront thing (using "ignore type") then we get nothing
         });
         Ext.getCmp('piTreeBox').add(tree);
         Ext.getCmp('piTreeBox').setBorder(1);
