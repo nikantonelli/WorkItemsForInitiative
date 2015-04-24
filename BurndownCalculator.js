@@ -160,39 +160,47 @@ Ext.define('BurndownCalculator', {
     runCalculation: function (snapshots) {
         var chartData = this.callParent(arguments);
 
-        if(chartData && chartData.projections && chartData.projections.series[0].slope > 0) {
-        // if the slope is positive, try using least squares.  If that's also positive, then use the first result
+        if(chartData && chartData.projections) {
             var todoData = chartData.series[0].data;
             var firstTodoIndex = this._firstNonZero(todoData),
-                lastTodoIndex = (todoData.length - 1) - chartData.projections.pointsAddedCount;
+            lastTodoIndex = (todoData.length - 1) - chartData.projections.pointsAddedCount;
 
             var results = this._leastSquares(todoData, firstTodoIndex, lastTodoIndex);
 
-            // override the prediction line only if least squares says the slope isn't positive
-            if(results.slope <= 0) {
-                this.projectionsConfig.series[0].slope = results.slope;
+            // if the slope is positive, try using least squares.  If that's also positive, then use the first result
+                // override the prediction line only if least squares says the slope isn't positive
+                if(results.slope <= 0) {
+                    this.projectionsConfig.series[0].slope = results.slope;
 
-                chartData = this.callParent(arguments);
+//                    chartData = this.callParent(arguments);
 
-                // project the plot back to the first todo value
-                chartData.series[3].data[firstTodoIndex] = ((results.slope * firstTodoIndex) + results.yintercept) + (chartData.series[3].data[lastTodoIndex] - ((results.slope * lastTodoIndex) + results.yintercept));
-                chartData.series[3].connectNulls = true;
-                this.projectionsConfig = undefined;
-            } else {
-            // DE18732, if the slope is up, truncate it at 1.25 of the max Ideal
-                var predictionCeiling = 1.25 * chartData.series[2].data[0];
-                if (_.max(chartData.series[3].data) > predictionCeiling) {
-                    var i;
-                    var maxVal = predictionCeiling;
-                    for(i=0;i < chartData.series[3].data.length;i++) {
-                        if(chartData.series[3].data[i] > predictionCeiling) {
-                            chartData.series[3].data[i] = maxVal;
-                            maxVal = null;
+                    // project the plot back to the first todo value
+                    var doingIndex = firstTodoIndex;
+                    var doingVal = ((results.slope * doingIndex) + results.yintercept) - ((results.slope * lastTodoIndex) + results.yintercept);
+
+                    while  (doingIndex <= todoData.length) {
+                        chartData.series[3].data[doingIndex] = doingVal;
+                        doingIndex++;
+                        doingVal = ((results.slope * doingIndex) + results.yintercept) - ((results.slope * lastTodoIndex) + results.yintercept);
+                    }
+
+                    //Carry on until it hits zero or some time distant
+//                    chartData.series[3].connectNulls = true;
+                    this.projectionsConfig = undefined;
+                } else {
+                // DE18732, if the slope is up, truncate it at 1.25 of the max Ideal
+                    var predictionCeiling = 1.25 * chartData.series[2].data[0];
+                    if (_.max(chartData.series[3].data) > predictionCeiling) {
+                        var i;
+                        var maxVal = predictionCeiling;
+                        for(i=0;i < chartData.series[3].data.length;i++) {
+                            if(chartData.series[3].data[i] > predictionCeiling) {
+                                chartData.series[3].data[i] = maxVal;
+                                maxVal = null;
+                            }
                         }
                     }
                 }
-            }
-
         }
 
         if(new Date() < this.config.endDate) {

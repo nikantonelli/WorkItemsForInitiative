@@ -715,6 +715,8 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                 timeZone: "GMT",
                 completedScheduleStateNames: ["Accepted", "Released"],
                 enableProjections: true,
+                //Uncomment to use counts of stories not velocity
+//                chartAggregationType: 'storycount',
                 startDate: app._getFirstStartDate(app),
                 endDate: app._getLastEndDate(app)
             },
