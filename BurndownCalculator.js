@@ -151,8 +151,14 @@ Ext.define('BurndownCalculator', {
             sumy2 = sumy2 + todoValues[i] * todoValues[i];
             sumxy = sumxy + i * todoValues[i];
         }
+
         slope = (n * sumxy - sumx * sumy) / (n * sumx2 - sumx * sumx);
-        yintercept = (sumy * sumx2 - sumx * sumxy) / (n * sumx2 - sumx * sumx);
+//        yintercept = (sumy * sumx2 - sumx * sumxy) / (n * sumx2 - sumx * sumx);
+//          slope = (sumxy - ((sumx * sumy)/n))/ (sumx2 - ((sumx * sumx)/n));
+
+          //Slightly fewer calculations if you do this
+          yintercept = (sumy/n) - (slope * (sumx/n));
+
 
         return {slope: slope, yintercept: yintercept};
     },
@@ -167,40 +173,32 @@ Ext.define('BurndownCalculator', {
 
             var results = this._leastSquares(todoData, firstTodoIndex, lastTodoIndex);
 
-            // if the slope is positive, try using least squares.  If that's also positive, then use the first result
-                // override the prediction line only if least squares says the slope isn't positive
-                if(results.slope <= 0) {
-                    this.projectionsConfig.series[0].slope = results.slope;
+            this.projectionsConfig.series[0].slope = results.slope;
 
-//                    chartData = this.callParent(arguments);
+            // project the plot back to the first todo value
+            var doingIndex = firstTodoIndex;
+            var doingVal = (((results.slope * doingIndex) + results.yintercept) + chartData.series[0].data[0]) - ((results.slope * lastTodoIndex) + results.yintercept);
 
-                    // project the plot back to the first todo value
-                    var doingIndex = firstTodoIndex;
-                    var doingVal = ((results.slope * doingIndex) + results.yintercept) - ((results.slope * lastTodoIndex) + results.yintercept);
+            while  (doingIndex <= todoData.length) {
+                chartData.series[3].data[doingIndex] = doingVal;
+                doingIndex++;
+                doingVal = (((results.slope * doingIndex) + results.yintercept) + chartData.series[0].data[0]) - ((results.slope * lastTodoIndex) + results.yintercept);
+            }
 
-                    while  (doingIndex <= todoData.length) {
-                        chartData.series[3].data[doingIndex] = doingVal;
-                        doingIndex++;
-                        doingVal = ((results.slope * doingIndex) + results.yintercept) - ((results.slope * lastTodoIndex) + results.yintercept);
-                    }
-
-                    //Carry on until it hits zero or some time distant
-//                    chartData.series[3].connectNulls = true;
-                    this.projectionsConfig = undefined;
-                } else {
-                // DE18732, if the slope is up, truncate it at 1.25 of the max Ideal
-                    var predictionCeiling = 1.25 * chartData.series[2].data[0];
-                    if (_.max(chartData.series[3].data) > predictionCeiling) {
-                        var i;
-                        var maxVal = predictionCeiling;
-                        for(i=0;i < chartData.series[3].data.length;i++) {
-                            if(chartData.series[3].data[i] > predictionCeiling) {
-                                chartData.series[3].data[i] = maxVal;
-                                maxVal = null;
-                            }
+            if(results.slope > 0) {
+            // If the slope is up, truncate it at 1.25 of the max scope
+                var predictionCeiling = 1.25 * chartData.series[2].Scope_max;
+                if (_.max(chartData.series[3].data) > predictionCeiling) {
+                    var i;
+                    var maxVal = predictionCeiling;
+                    for(i=0;i < chartData.series[3].data.length;i++) {
+                        if(chartData.series[3].data[i] > predictionCeiling) {
+                            chartData.series[3].data[i] = maxVal;
+                            maxVal = null;
                         }
                     }
                 }
+            }
         }
 
         if(new Date() < this.config.endDate) {
