@@ -192,6 +192,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
     _doArtifactChooserDialog: function(app) {
 
+        var currentContext = Rally.environment.getContext();
 
         //Keep the chooserdialog object in the global space so that we can read the fetched fields in its
         //data records for all the details panes.
@@ -210,7 +211,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             title += Ext.getCmp('typeSelector').rawValue;
         }
 
-        app.chsrDlg = Ext.create('Rally.ui.dialog.SolrArtifactChooserDialog', {
+        app.chsrDlg = Ext.create('Rally.ui.dialog.ArtifactChooserDialog', {
             artifactTypes: artifactType,
             autoShow: true,
             height: 400,
@@ -218,6 +219,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             multiple: true,
 
             storeConfig: {
+                context: currentContext,
                 fetch:['UserStories','Name','FormattedID','TypePath','ObjectID','PortfolioItemType', 'PlannedStartDate','PlannedEndDate'],
                 sorters: [
                     {
