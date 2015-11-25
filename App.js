@@ -76,6 +76,15 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         },
         {
             xtype: 'container',
+            id: 'piTestCaseBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
+        },
+        {
+            xtype: 'container',
             id: 'piTaskBox',
             border: 0,
             style: {
@@ -192,7 +201,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
     _doArtifactChooserDialog: function(app) {
 
-        var currentContext = Rally.environment.getContext();
 
         //Keep the chooserdialog object in the global space so that we can read the fetched fields in its
         //data records for all the details panes.
@@ -211,7 +219,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             title += Ext.getCmp('typeSelector').rawValue;
         }
 
-        app.chsrDlg = Ext.create('Rally.ui.dialog.ArtifactChooserDialog', {
+        app.chsrDlg = Ext.create('Rally.ui.dialog.SolrArtifactChooserDialog', {
             artifactTypes: artifactType,
             autoShow: true,
             height: 400,
@@ -219,7 +227,6 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             multiple: true,
 
             storeConfig: {
-                context: currentContext,
                 fetch:['UserStories','Name','FormattedID','TypePath','ObjectID','PortfolioItemType', 'PlannedStartDate','PlannedEndDate'],
                 sorters: [
                     {
@@ -680,6 +687,82 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
 
     },
 
+    _piTestCaseList: function(app) {
+
+        if ( Ext.getCmp('piTestCaseGrid')){
+            Ext.getCmp('piTestCaseGrid').destroy();
+        }
+
+
+        var objList = app.objStr;
+
+        var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
+            autoLoad: true,
+            storeId: 'piStore',
+            fetch: ['FormattedID', 'Name', 'LastVerdict', 'LastRun', 'Type'],
+//            hydrate: ['FormattedID', 'Name'],
+            filters:  [ {
+                            property: '_ItemHierarchy',
+                            operator: '$in',
+                            value: app.objStr
+                        },
+                        {
+                            property: '_TypeHierarchy',
+                            value: 'TestCase'
+                        },
+                        {
+                            property: "__At",
+                            value: "current"    //Get only the latest version
+                        }
+            ],
+            listeners: {
+                load: function(store, data, success) {
+
+                    _.each(data, function(record) {
+                        record.set('_ref', '/testcase/' + record.get('ObjectID'));
+                        record.set('_type', 'testcase');
+                    });
+
+                    var storyGrid = Ext.create('Rally.ui.grid.Grid', {
+                        title: 'TestCases',
+                        id: 'piTestCaseGrid',
+                        enableColumnMove: true,
+                        enableColumnResize: true,
+                        columnCfgs: [
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'ID',
+                                dataIndex: 'FormattedID',
+                                tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
+                                width: 50
+                            },
+                            {
+                                text: 'Name',
+                                dataIndex: 'Name',
+                                flex: 1
+                            },
+                            {
+                                text: 'Last Verdict',
+                                dataIndex: 'LastVerdict'
+                            },
+                            {
+                                text: 'Type',
+                                dataIndex: 'Type'
+                            }
+                        ],
+                        sortableColumns: true,
+                        store: store
+                    });
+
+                    Ext.getCmp('piTestCaseBox').add(storyGrid);
+                    Ext.getCmp('piTestCaseBox').setMargin(10);
+                    Ext.getCmp('piTestCaseBox').setBorder(1);
+                }
+            }
+        });
+
+    },
+
     _piBurndownChart: function(app) {
 
 
@@ -834,7 +917,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         app._piDefectList(app);
         app._piUserList(app);
         app._piBLockersList(app);
-
+        app._piTestCaseList(app);
 
     },
 
