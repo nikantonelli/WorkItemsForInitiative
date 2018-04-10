@@ -227,6 +227,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             multiple: true,
 
             storeConfig: {
+                context: app.getContext().getDataContext(),
                 fetch:['UserStories','Name','FormattedID','TypePath','ObjectID','PortfolioItemType', 'PlannedStartDate','PlannedEndDate'],
                 sorters: [
                     {
@@ -699,7 +700,7 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
         var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
             autoLoad: true,
             storeId: 'piStore',
-            fetch: ['FormattedID', 'Name', 'LastVerdict', 'LastRun', 'Type'],
+            fetch: ['FormattedID', 'Name', 'LastVerdict', 'LastRun', 'Type','DefectStatus','Defects'],
 //            hydrate: ['FormattedID', 'Name'],
             filters:  [ {
                             property: '_ItemHierarchy',
@@ -734,21 +735,28 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
                                 text: 'ID',
                                 dataIndex: 'FormattedID',
                                 tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
-                                width: 50
+                                minWidth: 50
                             },
                             {
                                 text: 'Name',
                                 dataIndex: 'Name',
-                                flex: 1
-                            },
-                            {
-                                text: 'Last Verdict',
-                                dataIndex: 'LastVerdict'
                             },
                             {
                                 text: 'Type',
                                 dataIndex: 'Type'
-                            }
+                            },
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'Last Verdict',
+                                dataIndex: 'LastVerdict',
+                                tpl: Ext.create('Rally.ui.renderer.template.LastVerdictTemplate')
+                            },
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'Defect Status',
+                                dataIndex: 'DefectStatus',
+                                tpl: Ext.create('Rally.ui.renderer.template.status.DefectStatusTemplate')
+                            },
                         ],
                         sortableColumns: true,
                         store: store
@@ -892,13 +900,19 @@ Ext.define('Rally.app.WorkItemsForInitiative.app', {
             oredFilters.push({ property: 'ObjectID', value: objID});
         });
 
+        console.log(oredFilters);
+
         var piType = 'portfolioitem/' + Ext.getCmp('typeSelector').rawValue;
 
         var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
             id: 'piHierarchy',
             topLevelModel: piType,
+            enableDragAndDrop: false,
+            readOnly: true,
             topLevelStoreConfig: {
-                filters: Rally.data.wsapi.Filter.or(oredFilters)
+                filters: Rally.data.wsapi.Filter.or(oredFilters),
+                //Progress Update is a custom field used to give status updates to the steering committee
+                fetch: ['FormattedID', 'Name', 'c_ProgressUpdate', 'PlannedStartDate', 'PlannedEndDate', 'PercentDoneByStoryCount','Children', 'ScheduleState', 'PlanEstimate','State']
             },
             emptyText: ' No items of type ' + piType + ' selected' //If we select the wront thing (using "ignore type") then we get nothing
         });

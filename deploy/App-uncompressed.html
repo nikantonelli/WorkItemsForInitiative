@@ -3,7 +3,7 @@
 <head>
     <title>WorkItemsForInitiative</title>
 
-    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+    <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
 
     <script type="text/javascript">
         Rally.onReady(function () {
@@ -82,6 +82,15 @@
                     }
                 }
             ]
+        },
+        {
+            xtype: 'container',
+            id: 'piTestCaseBox',
+            border: 0,
+            style: {
+                borderColor: Rally.util.Colors.cyan,
+                borderStyle: 'solid'
+            }
         },
         {
             xtype: 'container',
@@ -687,6 +696,91 @@
 
     },
 
+    _piTestCaseList: function(app) {
+
+        if ( Ext.getCmp('piTestCaseGrid')){
+            Ext.getCmp('piTestCaseGrid').destroy();
+        }
+
+
+        var objList = app.objStr;
+
+        var piStore = Ext.create('Rally.data.lookback.SnapshotStore', {
+            autoLoad: true,
+            storeId: 'piStore',
+            fetch: ['FormattedID', 'Name', 'LastVerdict', 'LastRun', 'Type','DefectStatus','Defects'],
+//            hydrate: ['FormattedID', 'Name'],
+            filters:  [ {
+                            property: '_ItemHierarchy',
+                            operator: '$in',
+                            value: app.objStr
+                        },
+                        {
+                            property: '_TypeHierarchy',
+                            value: 'TestCase'
+                        },
+                        {
+                            property: "__At",
+                            value: "current"    //Get only the latest version
+                        }
+            ],
+            listeners: {
+                load: function(store, data, success) {
+
+                    _.each(data, function(record) {
+                        record.set('_ref', '/testcase/' + record.get('ObjectID'));
+                        record.set('_type', 'testcase');
+                    });
+
+                    var storyGrid = Ext.create('Rally.ui.grid.Grid', {
+                        title: 'TestCases',
+                        id: 'piTestCaseGrid',
+                        enableColumnMove: true,
+                        enableColumnResize: true,
+                        columnCfgs: [
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'ID',
+                                dataIndex: 'FormattedID',
+                                tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
+                                width: 50
+                            },
+                            {
+                                text: 'Name',
+                                dataIndex: 'Name',
+                                flex: 1
+                            },
+                            {
+                                text: 'Type',
+                                dataIndex: 'Type'
+                            },
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'Last Verdict',
+                                dataIndex: 'LastVerdict',
+                                tpl: Ext.create('Rally.ui.renderer.template.LastVerdictTemplate'),
+                                width: 50
+                            },
+                            {
+                                xtype: 'templatecolumn',
+                                text: 'Defect Status',
+                                dataIndex: 'DefectStatus',
+                                tpl: Ext.create('Rally.ui.renderer.template.status.DefectStatusTemplate')
+                            },
+                        ],
+                        sortableColumns: true,
+                        store: store
+                    });
+
+                    Ext.getCmp('piTestCaseBox').add(storyGrid);
+                    Ext.getCmp('piTestCaseBox').setMargin(10);
+                    Ext.getCmp('piTestCaseBox').setBorder(1);
+                }
+            }
+        });
+
+    },
+
     _piBurndownChart: function(app) {
 
 
@@ -816,13 +910,19 @@
             oredFilters.push({ property: 'ObjectID', value: objID});
         });
 
+        console.log(oredFilters);
+
         var piType = 'portfolioitem/' + Ext.getCmp('typeSelector').rawValue;
 
         var tree = Ext.create('Rally.ui.tree.PortfolioTree',{
             id: 'piHierarchy',
             topLevelModel: piType,
+            enableDragAndDrop: false,
+            readOnly: true,
             topLevelStoreConfig: {
-                filters: Rally.data.wsapi.Filter.or(oredFilters)
+                filters: Rally.data.wsapi.Filter.or(oredFilters),
+                //Progress Update is a custom field used to give status updates to the steering committee
+                fetch: ['FormattedID', 'Name', 'c_ProgressUpdate', 'PlannedStartDate', 'PlannedEndDate', 'PercentDoneByStoryCount','Children', 'ScheduleState', 'PlanEstimate','State']
             },
             emptyText: ' No items of type ' + piType + ' selected' //If we select the wront thing (using "ignore type") then we get nothing
         });
@@ -841,7 +941,7 @@
         app._piDefectList(app);
         app._piUserList(app);
         app._piBLockersList(app);
-
+        app._piTestCaseList(app);
 
     },
 
@@ -1239,8 +1339,14 @@
             sumy2 = sumy2 + todoValues[i] * todoValues[i];
             sumxy = sumxy + i * todoValues[i];
         }
+
         slope = (n * sumxy - sumx * sumy) / (n * sumx2 - sumx * sumx);
-        yintercept = (sumy * sumx2 - sumx * sumxy) / (n * sumx2 - sumx * sumx);
+//        yintercept = (sumy * sumx2 - sumx * sumxy) / (n * sumx2 - sumx * sumx);
+//          slope = (sumxy - ((sumx * sumy)/n))/ (sumx2 - ((sumx * sumx)/n));
+
+          //Slightly fewer calculations if you do this
+          yintercept = (sumy/n) - (slope * (sumx/n));
+
 
         return {slope: slope, yintercept: yintercept};
     },
@@ -1255,32 +1361,32 @@
 
             var results = this._leastSquares(todoData, firstTodoIndex, lastTodoIndex);
 
-            // if the slope is positive, try using least squares.  If that's also positive, then use the first result
-                // override the prediction line only if least squares says the slope isn't positive
-                if(results.slope <= 0) {
-                    this.projectionsConfig.series[0].slope = results.slope;
+            this.projectionsConfig.series[0].slope = results.slope;
 
-                    chartData = this.callParent(arguments);
+            // project the plot back to the first todo value
+            var doingIndex = firstTodoIndex;
+            var doingVal = (((results.slope * doingIndex) + results.yintercept) + chartData.series[0].data[0]) - ((results.slope * lastTodoIndex) + results.yintercept);
 
-                    // project the plot back to the first todo value
-                    chartData.series[3].data[firstTodoIndex] =
-                            ((results.slope * firstTodoIndex) + results.yintercept) + (chartData.series[3].data[lastTodoIndex] - ((results.slope * lastTodoIndex) + results.yintercept));
-                    chartData.series[3].connectNulls = true;
-                    this.projectionsConfig = undefined;
-                } else {
-                // DE18732, if the slope is up, truncate it at 1.25 of the max Ideal
-                    var predictionCeiling = 1.25 * chartData.series[2].data[0];
-                    if (_.max(chartData.series[3].data) > predictionCeiling) {
-                        var i;
-                        var maxVal = predictionCeiling;
-                        for(i=0;i < chartData.series[3].data.length;i++) {
-                            if(chartData.series[3].data[i] > predictionCeiling) {
-                                chartData.series[3].data[i] = maxVal;
-                                maxVal = null;
-                            }
+            while  (doingIndex <= todoData.length) {
+                chartData.series[3].data[doingIndex] = doingVal;
+                doingIndex++;
+                doingVal = (((results.slope * doingIndex) + results.yintercept) + chartData.series[0].data[0]) - ((results.slope * lastTodoIndex) + results.yintercept);
+            }
+
+            if(results.slope > 0) {
+            // If the slope is up, truncate it at 1.25 of the max scope
+                var predictionCeiling = 1.25 * chartData.series[2].Scope_max;
+                if (_.max(chartData.series[3].data) > predictionCeiling) {
+                    var i;
+                    var maxVal = predictionCeiling;
+                    for(i=0;i < chartData.series[3].data.length;i++) {
+                        if(chartData.series[3].data[i] > predictionCeiling) {
+                            chartData.series[3].data[i] = maxVal;
+                            maxVal = null;
                         }
                     }
                 }
+            }
         }
 
         if(new Date() < this.config.endDate) {
@@ -1365,11 +1471,13 @@
 
             Rally.launchApp('Rally.app.WorkItemsForInitiative.app', {
                 name:"WorkItemsForInitiative",
-	            parentRepos:""
+                parentRepos:"",
+                version:"0.1.1"
             });
 
         });
     </script>
+
 
 
     <style type="text/css">
