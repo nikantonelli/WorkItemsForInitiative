@@ -236,6 +236,7 @@
             multiple: true,
 
             storeConfig: {
+                context: app.getContext().getDataContext(),
                 fetch:['UserStories','Name','FormattedID','TypePath','ObjectID','PortfolioItemType', 'PlannedStartDate','PlannedEndDate'],
                 sorters: [
                     {
@@ -743,12 +744,11 @@
                                 text: 'ID',
                                 dataIndex: 'FormattedID',
                                 tpl: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate'),
-                                width: 50
+                                minWidth: 50
                             },
                             {
                                 text: 'Name',
                                 dataIndex: 'Name',
-                                flex: 1
                             },
                             {
                                 text: 'Type',
@@ -758,8 +758,7 @@
                                 xtype: 'templatecolumn',
                                 text: 'Last Verdict',
                                 dataIndex: 'LastVerdict',
-                                tpl: Ext.create('Rally.ui.renderer.template.LastVerdictTemplate'),
-                                width: 50
+                                tpl: Ext.create('Rally.ui.renderer.template.LastVerdictTemplate')
                             },
                             {
                                 xtype: 'templatecolumn',
